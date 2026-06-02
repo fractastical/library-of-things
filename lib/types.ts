@@ -162,3 +162,60 @@ export interface LibraryCardSession {
   last_activity: string
   expires_at?: string
 }
+
+/** Research paper — catalog entry for Paper Jam (may link to Nexus via external_id or DOI). */
+export interface Paper {
+  id: string
+  doi?: string
+  /** Optional Bioelectricity Nexus paper id for deep linking. */
+  external_id?: string
+  title: string
+  authors?: string
+  abstract?: string
+  url?: string
+  added_by_user_id?: string
+  added_by_display_name?: string
+  created_at: string
+}
+
+export type ReadingQueueStatus = "planned" | "reading" | "completed"
+
+export interface ReadingQueueItem {
+  id: string
+  user_id: string
+  paper_id: string
+  status: ReadingQueueStatus
+  notes?: string
+  created_at: string
+  /** Joined from papers table for display. */
+  paper?: Paper
+}
+
+export type PaperJamFormat = "virtual" | "in_person" | "async"
+export type PaperJamSessionStatus = "open" | "scheduled" | "completed" | "cancelled"
+
+/** Group reading / seminar session around one or more papers. */
+export interface PaperJamSession {
+  id: string
+  title: string
+  description?: string
+  host_user_id: string
+  host_display_name?: string
+  scheduled_at?: string
+  format: PaperJamFormat
+  location_text?: string
+  meeting_url?: string
+  status: PaperJamSessionStatus
+  created_at: string
+  papers?: Paper[]
+  participant_count?: number
+  participants?: PaperJamParticipant[]
+}
+
+export interface PaperJamParticipant {
+  session_id: string
+  user_id: string
+  user_display_name?: string
+  role: "host" | "participant"
+  joined_at: string
+}

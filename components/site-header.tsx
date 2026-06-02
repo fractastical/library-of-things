@@ -14,6 +14,7 @@ import {
   CreditCard,
   ChevronDown,
   Camera,
+  BookMarked,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -26,13 +27,16 @@ import { GetLibraryCardModal, type GetLibraryCardModalMode } from "@/components/
 import { LoginLibraryCardModal } from "@/components/login-library-card-modal"
 import { IsbnCheckoutReturnDialog } from "@/components/isbn-checkout-return-dialog"
 import { useLibraryCard } from "@/hooks/use-library-card"
-import { ISBN_CHECKOUT_RETURN_ENABLED } from "@/lib/feature-flags"
+import { ISBN_CHECKOUT_RETURN_ENABLED, PAPER_JAM_ENABLED } from "@/lib/feature-flags"
 
 /** Main nav: Explore, Add a Book, Sharing history. Members linked from footer + ledger. */
 const navLinks = [
   { href: "/explore", label: "Explore", icon: Search },
   { href: "/add-book", label: "Add a Book", icon: PlusCircle },
   { href: "/ledger", label: "Sharing history", icon: ScrollText },
+  ...(PAPER_JAM_ENABLED
+    ? [{ href: "/paper-jam", label: "Paper Jam", icon: BookMarked }]
+    : []),
 ]
 
 /** Admin: steward dashboard only; add-book is reached from inside the dashboard. */

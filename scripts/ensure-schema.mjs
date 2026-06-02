@@ -269,8 +269,75 @@ async function main() {
       on conflict (key) do nothing;
     `)
 
+    /* ─── Paper Jam (Bioelectricity Nexus integration) ─── */
+    await client.query(`
+      create table if not exists papers (
+        id text primary key,
+        doi text,
+        external_id text,
+        title text not null,
+        authors text,
+        abstract text,
+        url text,
+        added_by_user_id text references users(id) on delete set null,
+        added_by_display_name text,
+        created_at timestamptz not null default now()
+      );
+    `)
+    await client.query(`
+      create unique index if not exists idx_papers_doi on papers(doi) where doi is not null;
+    `)
+    await client.query(`
+      create table if not exists reading_queue (
+        id text primary key,
+        user_id text not null references users(id) on delete cascade,
+        paper_id text not null references papers(id) on delete cascade,
+        status text not null check (status in ('planned','reading','completed')),
+        notes text,
+        created_at timestamptz not null default now(),
+        unique(user_id, paper_id)
+      );
+    `)
+    await client.query(`
+      create table if not exists paper_jam_sessions (
+        id text primary key,
+        title text not null,
+        description text,
+        host_user_id text not null references users(id) on delete cascade,
+        host_display_name text,
+        scheduled_at timestamptz,
+        format text not null check (format in ('virtual','in_person','async')),
+        location_text text,
+        meeting_url text,
+        status text not null check (status in ('open','scheduled','completed','cancelled')),
+        created_at timestamptz not null default now()
+      );
+    `)
+    await client.query(`
+      create table if not exists paper_jam_session_papers (
+        session_id text not null references paper_jam_sessions(id) on delete cascade,
+        paper_id text not null references papers(id) on delete cascade,
+        primary key (session_id, paper_id)
+      );
+    `)
+    await client.query(`
+      create table if not exists paper_jam_participants (
+        session_id text not null references paper_jam_sessions(id) on delete cascade,
+        user_id text not null references users(id) on delete cascade,
+        user_display_name text,
+        role text not null check (role in ('host','participant')),
+        joined_at timestamptz not null default now(),
+        primary key (session_id, user_id)
+      );
+    `)
+    await client.query(`
+      create index if not exists idx_reading_queue_user on reading_queue(user_id, created_at desc);
+      create index if not exists idx_paper_jam_sessions_scheduled on paper_jam_sessions(scheduled_at desc nulls last);
+      create index if not exists idx_paper_jam_participants_user on paper_jam_participants(user_id);
+    `)
+
     await client.query("commit")
-    console.log("Schema ensured. Tables: users, nodes, books, library_cards, loan_events, trust_events, app_config.")
+    console.log("Schema ensured. Tables: users, nodes, books, library_cards, loan_events, trust_events, app_config, papers, reading_queue, paper_jam_sessions, paper_jam_session_papers, paper_jam_participants.")
   } catch (error) {
     await client.query("rollback")
     console.error("Schema ensure failed:", error.message)

@@ -4,3 +4,6 @@
  */
 
 export const ISBN_CHECKOUT_RETURN_ENABLED = true
+
+/** Paper Jam — reading queues and collaborative seminars (Bioelectricity Nexus integration). */
+export { PAPER_JAM_ENABLED, NEXUS_SITE_URL } from "@/lib/nexus-config"

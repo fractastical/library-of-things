@@ -31,6 +31,10 @@
 | `/ledger` | Sharing history (all events; export CSV/JSON) |
 | `/members` | Member list (books out, activity); links to profiles |
 | `/steward/login`, `/steward/dashboard` | Steward: nodes, books (edit metadata + status/holder/location + optional ledger note), **Library settings** (default loan period), bulk add, member edit/delete; changes write to ledger |
+| `/paper-jam` | **Paper Jam** (optional; `NEXT_PUBLIC_PAPER_JAM_ENABLED=true`): reading lists + seminar jams for Bioelectricity Nexus integration |
+| `/paper-jam/new` | Add paper to reading list or create a jam; accepts Nexus deep-link query params (`doi`, `title`, `authors`, `url`, `nexus_id`, `jam=1`) |
+| `/paper-jam/my-queue` | Signed-in member's planned/reading papers |
+| `/paper-jam/[id]` | Jam session detail; join participants |
 
 ## Data & auth
 
@@ -124,3 +128,4 @@
 - **Deleted account** — On delete, ledger and "added by" show "Deleted account"; profile not-found: "This profile doesn't exist or the account has been deleted."
 - **Public/private profile** — `profile_public` (default true). When private: confirmation dialog; name becomes "Anonymous" app-wide; new events use getPublicDisplayName(); profile page shows "Anonymous" when viewing a private profile.
 - **Geofencing disabled** — No location or geolocation is requested in the app. Optional geofence code lives in `lib/geofence.ts` and `hooks/use-return-location.ts` for potential future use. Return flows (My Books dialog and checkout-page return) use a required checkbox: for **node returns** the user confirms they are at the return location (or will return there) and will only mark as returned when physically done; for **Pocket Library** books the checkbox is only that they will only mark as returned when they have physically returned the book. Checkout success screen tells users to tap/scan again to return and to only mark books as returned when they have actually returned them.
+- **Paper Jam (Bioelectricity Nexus)** — Optional module (`NEXT_PUBLIC_PAPER_JAM_ENABLED=true`; see `docs/NEXUS_PAPER_JAM.md`). Reading lists (`reading_queue`), seminar jams (`paper_jam_sessions`), join flow, public embed API at `/api/paper-jam`, Nexus deep links to `/paper-jam/new?doi=…`. Reuses library-card session auth. Server: `lib/server/paper-jam-repositories.ts`.
