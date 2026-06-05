@@ -5,7 +5,6 @@ import { Calendar, Users, Video, MapPin, MessageSquare } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import type { PaperJamSession } from "@/lib/types"
-import { doiToUrl } from "@/lib/doi-utils"
 
 function formatLabel(format: PaperJamSession["format"]) {
   if (format === "virtual") return "Virtual"
@@ -63,17 +62,9 @@ export function PaperJamSessionCard({ session }: { session: PaperJamSession }) {
           <ul className="space-y-1 border-t border-border/60 pt-3">
             {session.papers.slice(0, 3).map((paper) => (
               <li key={paper.id} className="line-clamp-1 text-foreground">
-                {paper.url ? (
-                  <a href={paper.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                    {paper.title}
-                  </a>
-                ) : paper.doi ? (
-                  <a href={doiToUrl(paper.doi)} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                    {paper.title}
-                  </a>
-                ) : (
-                  paper.title
-                )}
+                <Link href={`/paper-jam/paper/${paper.id}`} className="hover:underline">
+                  {paper.title}
+                </Link>
               </li>
             ))}
           </ul>

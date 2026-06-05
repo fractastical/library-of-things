@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { ReadingQueueStatusToggle } from "@/components/paper-jam-reading-status"
 import { useLibraryCard } from "@/hooks/use-library-card"
-import type { ReadingQueueItem } from "@/lib/types"
+import type { ReadingQueueItem, ReadingQueueStatus } from "@/lib/types"
 import { doiToUrl } from "@/lib/doi-utils"
 
 export default function MyReadingQueuePage() {
@@ -38,6 +38,10 @@ export default function MyReadingQueuePage() {
   useEffect(() => {
     void load()
   }, [load, card?.user_id])
+
+  function updateItemStatus(queueId: string, status: ReadingQueueStatus) {
+    setQueue((prev) => prev.map((item) => (item.id === queueId ? { ...item, status } : item)))
+  }
 
   return (
     <div className="page-container max-w-3xl py-10 sm:py-12">
@@ -76,38 +80,51 @@ export default function MyReadingQueuePage() {
         {queue.map((item) => {
           const paper = item.paper
           if (!paper) return null
+          const jamParams = new URLSearchParams({
+            title: paper.title,
+            doi: paper.doi ?? "",
+            authors: paper.authors ?? "",
+            url: paper.url ?? "",
+            jam: "1",
+          })
           return (
             <li key={item.id} className="px-4 py-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-medium">
-                    {paper.url ? (
-                      <a href={paper.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline">
-                        {paper.title}
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    ) : paper.doi ? (
-                      <a href={doiToUrl(paper.doi)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline">
-                        {paper.title}
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    ) : (
-                      paper.title
-                    )}
-                  </p>
-                  {paper.authors && (
-                    <p className="mt-1 text-sm text-muted-foreground">{paper.authors}</p>
-                  )}
-                </div>
-                <Badge variant="outline">{item.status}</Badge>
-              </div>
-              <div className="mt-3">
-                <Button size="sm" variant="outline" asChild>
-                  <Link
-                    href={`/paper-jam/new?title=${encodeURIComponent(paper.title)}&doi=${encodeURIComponent(paper.doi ?? "")}&authors=${encodeURIComponent(paper.authors ?? "")}&url=${encodeURIComponent(paper.url ?? "")}&jam=1`}
-                  >
-                    Start a jam on this paper
+              <div className="min-w-0">
+                <p className="font-medium">
+                  <Link href={`/paper-jam/paper/${paper.id}`} className="hover:underline">
+                    {paper.title}
                   </Link>
+                  {(paper.url || paper.doi) && (
+                    <a
+                      href={paper.url || doiToUrl(paper.doi!)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 inline-flex align-middle text-muted-foreground hover:text-foreground"
+                      aria-label="Open paper"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                </p>
+                {paper.authors && (
+                  <p className="mt-1 text-sm text-muted-foreground">{paper.authors}</p>
+                )}
+              </div>
+
+              <div className="mt-3">
+                <ReadingQueueStatusToggle
+                  queueId={item.id}
+                  status={item.status}
+                  onUpdated={(status) => updateItemStatus(item.id, status)}
+                />
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={`/paper-jam/paper/${paper.id}`}>See who else is reading</Link>
+                </Button>
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={`/paper-jam/new?${jamParams.toString()}`}>Start a jam</Link>
                 </Button>
               </div>
             </li>

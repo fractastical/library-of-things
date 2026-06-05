@@ -219,3 +219,19 @@ export interface PaperJamParticipant {
   role: "host" | "participant"
   joined_at: string
 }
+
+/** Member with this paper on their reading list. */
+export interface PaperReader {
+  user_id: string
+  display_name: string
+  status: ReadingQueueStatus
+  profile_public?: boolean
+}
+
+/** Paper plus community context for detail page. */
+export interface PaperWithContext {
+  paper: Paper
+  queue_count: number
+  readers: PaperReader[]
+  sessions: PaperJamSession[]
+}

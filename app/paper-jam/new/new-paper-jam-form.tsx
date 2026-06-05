@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
@@ -15,8 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { NexusPaperPicker } from "@/components/nexus-paper-picker"
 import { useLibraryCard } from "@/hooks/use-library-card"
 import { useToast } from "@/hooks/use-toast"
+import { nexusPaperToJamFields, type NexusPaper } from "@/lib/nexus-papers"
 import type { PaperJamFormat } from "@/lib/types"
 
 export default function NewPaperJamPage() {
@@ -26,11 +28,15 @@ export default function NewPaperJamPage() {
   const { toast } = useToast()
   const [mode, setMode] = useState<"queue" | "jam">("queue")
   const [submitting, setSubmitting] = useState(false)
+  const [selectedNexusId, setSelectedNexusId] = useState<string | undefined>(
+    searchParams.get("nexus_id") ?? undefined
+  )
 
   const [title, setTitle] = useState(searchParams.get("title") ?? "")
   const [authors, setAuthors] = useState(searchParams.get("authors") ?? "")
   const [doi, setDoi] = useState(searchParams.get("doi") ?? "")
   const [url, setUrl] = useState(searchParams.get("url") ?? "")
+  const [abstract, setAbstract] = useState(searchParams.get("abstract") ?? "")
   const [externalId, setExternalId] = useState(searchParams.get("nexus_id") ?? "")
 
   const [jamTitle, setJamTitle] = useState("")
@@ -40,9 +46,35 @@ export default function NewPaperJamPage() {
   const [meetingUrl, setMeetingUrl] = useState("")
   const [locationText, setLocationText] = useState("")
 
+  const applyNexusPaper = useCallback((paper: NexusPaper) => {
+    const fields = nexusPaperToJamFields(paper)
+    setTitle(fields.title)
+    setAuthors(fields.authors ?? "")
+    setDoi(fields.doi ?? "")
+    setUrl(fields.url ?? "")
+    setAbstract(fields.abstract ?? "")
+    setExternalId(fields.external_id)
+    setSelectedNexusId(paper.id)
+    if (mode === "jam") {
+      setJamTitle(`Jam: ${fields.title.slice(0, 80)}`)
+    }
+  }, [mode])
+
   useEffect(() => {
     if (searchParams.get("jam") === "1") setMode("jam")
   }, [searchParams])
+
+  useEffect(() => {
+    const nexusId = searchParams.get("nexus_id")
+    if (!nexusId || searchParams.get("title")) return
+    fetch(`/api/paper-jam/nexus/papers?id=${encodeURIComponent(nexusId)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        const paper = json?.papers?.[0] as NexusPaper | undefined
+        if (paper) applyNexusPaper(paper)
+      })
+      .catch(() => {})
+  }, [searchParams, applyNexusPaper])
 
   useEffect(() => {
     if (mode === "jam" && !jamTitle && title) {
@@ -70,6 +102,7 @@ export default function NewPaperJamPage() {
           authors: authors.trim() || undefined,
           doi: doi.trim() || undefined,
           url: url.trim() || undefined,
+          abstract: abstract.trim() || undefined,
           external_id: externalId.trim() || undefined,
           status: "planned",
         }),
@@ -116,6 +149,7 @@ export default function NewPaperJamPage() {
             authors: authors.trim() || undefined,
             doi: doi.trim() || undefined,
             url: url.trim() || undefined,
+            abstract: abstract.trim() || undefined,
             external_id: externalId.trim() || undefined,
           },
         }),
@@ -146,7 +180,7 @@ export default function NewPaperJamPage() {
 
       <h1 className="font-serif text-3xl font-semibold">Add a paper</h1>
       <p className="mt-2 text-muted-foreground">
-        Prefilled from Bioelectricity Nexus when you arrive via a paper link.
+        Pick from the Bioelectricity Nexus feed, or enter details manually below.
       </p>
 
       <div className="mt-6 flex gap-2">
@@ -166,6 +200,16 @@ export default function NewPaperJamPage() {
         </Button>
       </div>
 
+      <div className="mt-6">
+        <NexusPaperPicker selectedId={selectedNexusId} onSelect={applyNexusPaper} />
+      </div>
+
+      {selectedNexusId && title && (
+        <p className="mt-4 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm">
+          Selected: <span className="font-medium">{title}</span>
+        </p>
+      )}
+
       <form
         className="mt-8 space-y-5"
         onSubmit={(e) => {
@@ -173,6 +217,7 @@ export default function NewPaperJamPage() {
           void (mode === "queue" ? submitQueue() : submitJam())
         }}
       >
+        <p className="text-sm font-medium text-muted-foreground">Or edit details manually</p>
         <div className="space-y-2">
           <Label htmlFor="title">Paper title</Label>
           <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
@@ -187,8 +232,16 @@ export default function NewPaperJamPage() {
             <Input id="doi" value={doi} onChange={(e) => setDoi(e.target.value)} placeholder="10.1234/example" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="nexus_id">Nexus paper id</Label>
-            <Input id="nexus_id" value={externalId} onChange={(e) => setExternalId(e.target.value)} />
+            <Label htmlFor="nexus_id">Nexus id</Label>
+            <Input
+              id="nexus_id"
+              value={externalId}
+              onChange={(e) => {
+                setExternalId(e.target.value)
+                setSelectedNexusId(e.target.value || undefined)
+              }}
+              readOnly={!!selectedNexusId}
+            />
           </div>
         </div>
         <div className="space-y-2">

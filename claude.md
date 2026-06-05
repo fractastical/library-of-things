@@ -35,6 +35,7 @@
 | `/paper-jam/new` | Add paper to reading list or create a jam; accepts Nexus deep-link query params (`doi`, `title`, `authors`, `url`, `nexus_id`, `jam=1`) |
 | `/paper-jam/my-queue` | Signed-in member's planned/reading papers |
 | `/paper-jam/[id]` | Jam session detail; join participants |
+| `/paper-jam/paper/[id]` | Paper detail — who is reading, upcoming jams on this paper |
 
 ## Data & auth
 
@@ -128,4 +129,4 @@
 - **Deleted account** — On delete, ledger and "added by" show "Deleted account"; profile not-found: "This profile doesn't exist or the account has been deleted."
 - **Public/private profile** — `profile_public` (default true). When private: confirmation dialog; name becomes "Anonymous" app-wide; new events use getPublicDisplayName(); profile page shows "Anonymous" when viewing a private profile.
 - **Geofencing disabled** — No location or geolocation is requested in the app. Optional geofence code lives in `lib/geofence.ts` and `hooks/use-return-location.ts` for potential future use. Return flows (My Books dialog and checkout-page return) use a required checkbox: for **node returns** the user confirms they are at the return location (or will return there) and will only mark as returned when physically done; for **Pocket Library** books the checkbox is only that they will only mark as returned when they have physically returned the book. Checkout success screen tells users to tap/scan again to return and to only mark books as returned when they have actually returned them.
-- **Paper Jam (Bioelectricity Nexus)** — Optional module (`NEXT_PUBLIC_PAPER_JAM_ENABLED=true`; see `docs/NEXUS_PAPER_JAM.md`). Reading lists (`reading_queue`), seminar jams (`paper_jam_sessions`), join flow, public embed API at `/api/paper-jam`, Nexus deep links to `/paper-jam/new?doi=…`. Reuses library-card session auth. Server: `lib/server/paper-jam-repositories.ts`.
+- **Paper Jam (Bioelectricity Nexus)** — Optional module (`NEXT_PUBLIC_PAPER_JAM_ENABLED=true`; see `docs/NEXUS_PAPER_JAM.md`, **`docs/IDL_SYNC.md`**). Nexus feed picker; **IDL export** at `/api/paper-jam/idl/export` for `fractastical/idl` `paper_jam_sync.py` (`Paper Jam` category). Reading status toggles, paper detail, .ics, host controls. Server: `paper-jam-repositories.ts`, `nexus-papers-client.ts`, `paper-jam-idl.ts`.

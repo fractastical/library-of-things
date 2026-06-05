@@ -8,7 +8,6 @@ import { PaperJamSessionCard } from "@/components/paper-jam-session-card"
 import { useLibraryCard } from "@/hooks/use-library-card"
 import { NEXUS_SITE_URL } from "@/lib/feature-flags"
 import type { Paper, PaperJamSession } from "@/lib/types"
-import { doiToUrl } from "@/lib/doi-utils"
 
 type PaperJamData = {
   sessions: PaperJamSession[]
@@ -76,7 +75,7 @@ export default function PaperJamHome() {
             <Button asChild>
               <Link href="/paper-jam/new">
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Add paper or start a jam
+                Browse Nexus &amp; add paper
               </Link>
             </Button>
             {card?.user_id && (
@@ -143,25 +142,20 @@ export default function PaperJamHome() {
                       <li key={paper.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                         <div className="min-w-0">
                           <p className="font-medium line-clamp-2">
-                            {paper.url ? (
-                              <a href={paper.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                {paper.title}
-                              </a>
-                            ) : paper.doi ? (
-                              <a href={doiToUrl(paper.doi)} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                {paper.title}
-                              </a>
-                            ) : (
-                              paper.title
-                            )}
+                            <Link href={`/paper-jam/paper/${paper.id}`} className="hover:underline">
+                              {paper.title}
+                            </Link>
                           </p>
                           {paper.authors && (
                             <p className="text-sm text-muted-foreground line-clamp-1">{paper.authors}</p>
                           )}
                         </div>
-                        <span className="shrink-0 text-sm text-muted-foreground">
+                        <Link
+                          href={`/paper-jam/paper/${paper.id}`}
+                          className="shrink-0 text-sm text-muted-foreground hover:underline"
+                        >
                           {paper.queue_count} reading
-                        </span>
+                        </Link>
                       </li>
                     ))}
                   </ul>

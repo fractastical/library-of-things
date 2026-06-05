@@ -255,6 +255,34 @@ export async function listReadingQueue(userId: string): Promise<ReadingQueueItem
   }))
 }
 
+export async function updateReadingQueueStatus(input: {
+  queue_id: string
+  user_id: string
+  status: ReadingQueueStatus
+}): Promise<ReadingQueueItem | null> {
+  const { rows } = await resilientQuery<DbQueue>(
+    `update reading_queue
+     set status = $3
+     where id = $1 and user_id = $2
+     returning *`,
+    [input.queue_id, input.user_id, input.status]
+  )
+  if (!rows[0]) return null
+  const item = rows[0]
+  const paperRows = await resilientQuery<DbPaper>("select * from papers where id = $1", [
+    item.paper_id,
+  ])
+  return {
+    id: item.id,
+    user_id: item.user_id,
+    paper_id: item.paper_id,
+    status: item.status as ReadingQueueStatus,
+    notes: item.notes ?? undefined,
+    created_at: asIso(item.created_at)!,
+    paper: paperRows.rows[0] ? mapPaper(paperRows.rows[0]) : undefined,
+  }
+}
+
 export async function listPopularReadingPapers(limit = 10): Promise<
   Array<Paper & { queue_count: number }>
 > {
@@ -271,6 +299,74 @@ export async function listPopularReadingPapers(limit = 10): Promise<
     ...mapPaper(row),
     queue_count: Number(row.queue_count),
   }))
+}
+
+export async function getPaperById(id: string): Promise<Paper | null> {
+  const { rows } = await resilientQuery<DbPaper>("select * from papers where id = $1", [id])
+  return rows[0] ? mapPaper(rows[0]) : null
+}
+
+export async function getPaperReaders(paperId: string) {
+  const { rows } = await resilientQuery<{
+    user_id: string
+    display_name: string
+    status: string
+    profile_public: boolean
+  }>(
+    `select u.id as user_id,
+            case when u.profile_public then u.display_name else 'Anonymous' end as display_name,
+            rq.status,
+            u.profile_public
+     from reading_queue rq
+     join users u on u.id = rq.user_id
+     where rq.paper_id = $1
+     order by case rq.status when 'reading' then 0 when 'planned' then 1 when 'completed' then 2 end,
+              rq.created_at desc`,
+    [paperId]
+  )
+  return rows.map((r) => ({
+    user_id: r.user_id,
+    display_name: r.display_name,
+    status: r.status as ReadingQueueStatus,
+    profile_public: r.profile_public,
+  }))
+}
+
+export async function getPaperQueueCount(paperId: string): Promise<number> {
+  const { rows } = await resilientQuery<{ count: string }>(
+    `select count(*)::text as count from reading_queue
+     where paper_id = $1 and status in ('planned', 'reading')`,
+    [paperId]
+  )
+  return Number(rows[0]?.count ?? 0)
+}
+
+export async function getPaperFinishedCount(paperId: string): Promise<number> {
+  const { rows } = await resilientQuery<{ count: string }>(
+    `select count(*)::text as count from reading_queue
+     where paper_id = $1 and status = 'completed'`,
+    [paperId]
+  )
+  return Number(rows[0]?.count ?? 0)
+}
+
+export async function listSessionsForPaper(paperId: string): Promise<PaperJamSession[]> {
+  const { rows } = await resilientQuery<{ session_id: string }>(
+    `select session_id from paper_jam_session_papers where paper_id = $1`,
+    [paperId]
+  )
+  if (rows.length === 0) return []
+  const ids = rows.map((r) => r.session_id)
+  const { rows: sessions } = await resilientQuery<DbSession>(
+    `select * from paper_jam_sessions
+     where id = any($1::text[]) and status in ('open', 'scheduled')
+     order by scheduled_at asc nulls last`,
+    [ids]
+  )
+  let result = sessions.map(mapSession)
+  result = await attachParticipantCounts(result)
+  result = await attachPapersToSessions(result)
+  return result
 }
 
 export async function createPaperJamSession(input: {
@@ -292,11 +388,10 @@ export async function createPaperJamSession(input: {
   const client = await resilientConnect()
   try {
     await client.query("begin")
-    const { rows } = await client.query<DbSession>(
+    await client.query<DbSession>(
       `insert into paper_jam_sessions
          (id, title, description, host_user_id, host_display_name, scheduled_at, format, location_text, meeting_url, status)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       returning *`,
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         id,
         input.title.trim(),
@@ -365,4 +460,77 @@ export async function joinPaperJamSession(input: {
   } finally {
     client.release()
   }
+}
+
+export async function updatePaperJamSession(input: {
+  session_id: string
+  host_user_id: string
+  title?: string
+  description?: string | null
+  scheduled_at?: string | null
+  format?: PaperJamSession["format"]
+  location_text?: string | null
+  meeting_url?: string | null
+  status?: PaperJamSession["status"]
+}): Promise<PaperJamSession | null> {
+  const existing = await getPaperJamSession(input.session_id)
+  if (!existing || existing.host_user_id !== input.host_user_id) return null
+
+  const title = input.title?.trim() ?? existing.title
+  const description =
+    input.description !== undefined ? input.description?.trim() || null : existing.description ?? null
+  const scheduledAt =
+    input.scheduled_at !== undefined ? input.scheduled_at || null : existing.scheduled_at ?? null
+  const format = input.format ?? existing.format
+  const locationText =
+    input.location_text !== undefined
+      ? input.location_text?.trim() || null
+      : existing.location_text ?? null
+  const meetingUrl =
+    input.meeting_url !== undefined
+      ? input.meeting_url?.trim() || null
+      : existing.meeting_url ?? null
+
+  let status = input.status ?? existing.status
+  if (status === "open" || status === "scheduled") {
+    status = scheduledAt ? "scheduled" : "open"
+  }
+
+  await resilientQuery(
+    `update paper_jam_sessions
+     set title = $2, description = $3, scheduled_at = $4, format = $5,
+         location_text = $6, meeting_url = $7, status = $8
+     where id = $1 and host_user_id = $9`,
+    [
+      input.session_id,
+      title,
+      description,
+      scheduledAt,
+      format,
+      locationText,
+      meetingUrl,
+      status,
+      input.host_user_id,
+    ]
+  )
+  return getPaperJamSession(input.session_id)
+}
+
+/** Sessions the user has joined that are still open or scheduled. */
+export async function listUserActivePaperJamSessions(userId: string): Promise<PaperJamSession[]> {
+  const { rows } = await resilientQuery<{ session_id: string }>(
+    `select s.id as session_id
+     from paper_jam_sessions s
+     inner join paper_jam_participants p on p.session_id = s.id and p.user_id = $1
+     where s.status in ('open', 'scheduled')
+     order by s.scheduled_at asc nulls last`,
+    [userId]
+  )
+  if (rows.length === 0) return []
+  const sessions: PaperJamSession[] = []
+  for (const row of rows) {
+    const session = await getPaperJamSession(row.session_id)
+    if (session) sessions.push(session)
+  }
+  return sessions
 }
